@@ -83,37 +83,49 @@ static const char* errorStrings[] = {"No error",
                                      "A firewall is blocking the traffic"};
 
 static tPvCameraInfo cameraList[MAX_CAMERA_LIST];
-static unsigned long cameraNum = 0;
+static volatile unsigned long cameraNum = 0;
+
+static boost::mutex init_mutex;
+static volatile int prosilica_init_count = 0;
 
 void init()
 {
-  CHECK_ERR( PvInitialize(), "Failed to initialize Prosilica API" );
+  boost::lock_guard<boost::mutex> guard(init_mutex);
+  if(prosilica_init_count == 0){
+    CHECK_ERR( PvInitialize(), "Failed to initialize Prosilica API" );
+    ++prosilica_init_count;
 
-  // Spend up to 1s trying to find a camera. Finding no camera is not
-  // an error; the user may still be able open one by IP address.
-  for (int tries = 0; tries < 5; ++tries)
-  {
-    cameraNum = PvCameraList(cameraList, MAX_CAMERA_LIST, NULL);
-    if (cameraNum)
-      return;
-    usleep(200000);
+    // Spend up to 1s trying to find a camera. Finding no camera is not
+    // an error; the user may still be able open one by IP address.
+    for (int tries = 0; tries < 5; ++tries)
+      {
+	cameraNum = PvCameraList(cameraList, MAX_CAMERA_LIST, NULL);
+	if (cameraNum)
+	  return;
+	usleep(200000);
+      }
   }
-  
+
   /// @todo Callbacks for add/remove camera?
 }
 
 void fini()
 {
-  PvUnInitialize();
+  boost::lock_guard<boost::mutex> guard(init_mutex);
+  --prosilica_init_count;
+  if(prosilica_init_count == 0)
+    PvUnInitialize();
 }
 
 size_t numCameras()
 {
+  boost::lock_guard<boost::mutex> guard(init_mutex);
   return cameraNum;
 }
 
 uint64_t getGuid(size_t i)
 {
+  boost::lock_guard<boost::mutex> guard(init_mutex);
   assert(i < MAX_CAMERA_LIST);
   if (i >= cameraNum)
     throw ProsilicaException(ePvErrBadParameter, "No camera at index i");

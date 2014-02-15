@@ -15,7 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
    rosconsole
    dynamic_reconfigure 
    camera_calibration_parsers 
-   polled_camera)
+   polled_camera
+   nodelet)
 
 find_package(Boost REQUIRED COMPONENTS thread)
 
@@ -29,9 +30,23 @@ catkin_package()
 add_library(prosilica src/libprosilica/prosilica.cpp)
 target_link_libraries(prosilica ${catkin_LIBRARIES})
 
+add_library(prosilica_node_driver src/nodes/prosilica_node_driver.cpp)
+target_link_libraries(prosilica_node_driver prosilica ${Boost_LIBRARIES} ${catkin_LIBRARIES})
+
+add_library(prosilica_nodelet src/nodes/prosilica_nodelet.cpp)
+target_link_libraries(prosilica_nodelet 
+   prosilica 
+   prosilica_node_driver
+   ${Boost_LIBRARIES} 
+   ${catkin_LIBRARIES})
+add_dependencies(prosilica_nodelet
+   ${catkin_EXPORTED_TARGETS}
+   ${prosilica_camera_EXPORTED_TARGETS})
+
 add_executable(prosilica_node src/nodes/prosilica_node.cpp)
 target_link_libraries(prosilica_node 
    prosilica 
+   prosilica_node_driver
    ${Boost_LIBRARIES} 
    ${catkin_LIBRARIES})
 add_dependencies(prosilica_node 

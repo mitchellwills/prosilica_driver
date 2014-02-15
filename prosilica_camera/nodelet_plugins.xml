@@ -1,0 +1,7 @@
+<library path="lib/libprosilica_nodelet">
+  <class name="prosilica/ProsilicaNodelet" type="prosilica::ProsilicaNodelet" base_class_type="nodelet::Nodelet">
+    <description>
+      Prosilica Camera Driver Nodelet
+    </description>
+  </class>
+</library>
