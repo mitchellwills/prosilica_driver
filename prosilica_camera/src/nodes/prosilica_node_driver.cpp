@@ -65,9 +65,10 @@
 #include "prosilica/prosilica_node_driver.h"
 
 namespace prosilica{
-  ProsilicaNodeDriver::ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh)
+  ProsilicaNodeDriver::ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name)
     : nh_(node_handle),
       it_(nh_),
+      diagnostic_(node_handle, local_nh, node_name),
       reconfigure_server_(local_nh),
       cam_(NULL), running_(false), auto_adjust_stream_bytes_per_second_(false),
       count_(0),

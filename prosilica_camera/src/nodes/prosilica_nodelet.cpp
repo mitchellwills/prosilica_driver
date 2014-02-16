@@ -28,7 +28,7 @@ void ProsilicaNodelet::onInit()
 {
   ros::NodeHandle priv_nh(getPrivateNodeHandle());
   ros::NodeHandle node(getNodeHandle(), "camera");
-  dvr_.reset(new prosilica::ProsilicaNodeDriver(node, priv_nh));
+  dvr_.reset(new prosilica::ProsilicaNodeDriver(node, priv_nh, getName()));
 }
 
 }

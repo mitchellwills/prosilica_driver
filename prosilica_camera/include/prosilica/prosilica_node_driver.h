@@ -84,7 +84,7 @@ private:
   int consecutive_stable_exposures_;
 
 public:
-  ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh);
+  ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name);
 
   void configure(Config& config, uint32_t level);
 
