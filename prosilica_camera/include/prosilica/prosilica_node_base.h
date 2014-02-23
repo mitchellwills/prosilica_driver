@@ -35,7 +35,7 @@
 namespace prosilica{
 
 /// @todo Only stream when subscribed to
-class ProsilicaNodeDriver
+class ProsilicaNodeBase
 {
 private:
   ros::NodeHandle nh_;
@@ -84,11 +84,11 @@ private:
   int consecutive_stable_exposures_;
 
 public:
-  ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name);
+  ProsilicaNodeBase(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name);
 
   void configure(Config& config, uint32_t level);
 
-  ~ProsilicaNodeDriver();
+  ~ProsilicaNodeBase();
 
   void syncInCallback (const std_msgs::HeaderConstPtr& msg);
   

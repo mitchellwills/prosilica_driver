@@ -1,4 +1,4 @@
-#include "prosilica/prosilica_node_driver.h"
+#include "prosilica/prosilica_node_base.h"
 
 int main(int argc, char **argv)
 {
@@ -6,7 +6,7 @@ int main(int argc, char **argv)
 
   ros::NodeHandle nh("camera");
   ros::NodeHandle pnh("~");
-  prosilica::ProsilicaNodeDriver pn(nh, pnh, ros::this_node::getName());
+  prosilica::ProsilicaNodeBase pn(nh, pnh, ros::this_node::getName());
   ros::spin();
 
   return 0;

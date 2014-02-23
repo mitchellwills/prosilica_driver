@@ -1,5 +1,5 @@
 #include <nodelet/nodelet.h>
-#include "prosilica/prosilica_node_driver.h"
+#include "prosilica/prosilica_node_base.h"
 #include <pluginlib/class_list_macros.h>
 
 namespace prosilica{
@@ -17,7 +17,7 @@ public:
 private:
   virtual void onInit();
 
-  boost::shared_ptr<prosilica::ProsilicaNodeDriver> dvr_;
+  boost::shared_ptr<prosilica::ProsilicaNodeBase> dvr_;
 };
 
 /** Nodelet initialization.
@@ -28,7 +28,7 @@ void ProsilicaNodelet::onInit()
 {
   ros::NodeHandle priv_nh(getPrivateNodeHandle());
   ros::NodeHandle node(getNodeHandle(), "camera");
-  dvr_.reset(new prosilica::ProsilicaNodeDriver(node, priv_nh, getName()));
+  dvr_.reset(new prosilica::ProsilicaNodeBase(node, priv_nh, getName()));
 }
 
 }

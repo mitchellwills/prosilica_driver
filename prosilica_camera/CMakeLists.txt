@@ -30,23 +30,23 @@ catkin_package()
 add_library(prosilica src/libprosilica/prosilica.cpp)
 target_link_libraries(prosilica ${catkin_LIBRARIES})
 
-add_library(prosilica_node_driver src/nodes/prosilica_node_driver.cpp)
-target_link_libraries(prosilica_node_driver prosilica ${Boost_LIBRARIES} ${catkin_LIBRARIES})
+add_library(prosilica_node_base src/nodes/prosilica_node_base.cpp)
+target_link_libraries(prosilica_node_base prosilica ${Boost_LIBRARIES} ${catkin_LIBRARIES})
 
-add_library(prosilica_nodelet src/nodes/prosilica_nodelet.cpp)
+add_library(prosilica_nodelet src/nodes/prosilica_camera_nodelet.cpp)
 target_link_libraries(prosilica_nodelet 
    prosilica 
-   prosilica_node_driver
+   prosilica_node_base
    ${Boost_LIBRARIES} 
    ${catkin_LIBRARIES})
 add_dependencies(prosilica_nodelet
    ${catkin_EXPORTED_TARGETS}
    ${prosilica_camera_EXPORTED_TARGETS})
 
-add_executable(prosilica_node src/nodes/prosilica_node.cpp)
+add_executable(prosilica_node src/nodes/prosilica_camera_node.cpp)
 target_link_libraries(prosilica_node 
    prosilica 
-   prosilica_node_driver
+   prosilica_node_base
    ${Boost_LIBRARIES} 
    ${catkin_LIBRARIES})
 add_dependencies(prosilica_node 

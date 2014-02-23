@@ -62,10 +62,10 @@
 
 #include "prosilica/prosilica.h"
 #include "prosilica/rolling_sum.h"
-#include "prosilica/prosilica_node_driver.h"
+#include "prosilica/prosilica_node_base.h"
 
 namespace prosilica{
-  ProsilicaNodeDriver::ProsilicaNodeDriver(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name)
+  ProsilicaNodeBase::ProsilicaNodeBase(ros::NodeHandle& node_handle, ros::NodeHandle& local_nh, const std::string& node_name)
     : nh_(node_handle),
       it_(nh_),
       diagnostic_(node_handle, local_nh, node_name),
@@ -127,25 +127,25 @@ namespace prosilica{
     // above from failing to find the camera gives bizarre backtraces
     // (http://answers.ros.org/question/430/trouble-with-prosilica_camera-pvapi).
     self_test_.reset(new self_test::TestRunner(local_nh));
-    self_test_->add( "Info Test", this, &ProsilicaNodeDriver::infoTest );
-    self_test_->add( "Attribute Test", this, &ProsilicaNodeDriver::attributeTest );
-    self_test_->add( "Image Test", this, &ProsilicaNodeDriver::imageTest );
+    self_test_->add( "Info Test", this, &ProsilicaNodeBase::infoTest );
+    self_test_->add( "Attribute Test", this, &ProsilicaNodeBase::attributeTest );
+    self_test_->add( "Image Test", this, &ProsilicaNodeBase::imageTest );
     
-    diagnostic_.add( "Frequency Status", this, &ProsilicaNodeDriver::freqStatus );
-    diagnostic_.add( "Frame Statistics", this, &ProsilicaNodeDriver::frameStatistics );
-    diagnostic_.add( "Packet Statistics", this, &ProsilicaNodeDriver::packetStatistics );
-    diagnostic_.add( "Packet Error Status", this, &ProsilicaNodeDriver::packetErrorStatus );
+    diagnostic_.add( "Frequency Status", this, &ProsilicaNodeBase::freqStatus );
+    diagnostic_.add( "Frame Statistics", this, &ProsilicaNodeBase::frameStatistics );
+    diagnostic_.add( "Packet Statistics", this, &ProsilicaNodeBase::packetStatistics );
+    diagnostic_.add( "Packet Error Status", this, &ProsilicaNodeBase::packetErrorStatus );
 
-    diagnostic_timer_ = nh_.createTimer(ros::Duration(0.1), boost::bind(&ProsilicaNodeDriver::runDiagnostics, this));
+    diagnostic_timer_ = nh_.createTimer(ros::Duration(0.1), boost::bind(&ProsilicaNodeBase::runDiagnostics, this));
 
     // Service call for setting calibration.
-    set_camera_info_srv_ = local_nh.advertiseService("set_camera_info", &ProsilicaNodeDriver::setCameraInfo, this);
+    set_camera_info_srv_ = local_nh.advertiseService("set_camera_info", &ProsilicaNodeBase::setCameraInfo, this);
 
     // Start dynamic_reconfigure
-    reconfigure_server_.setCallback(boost::bind(&ProsilicaNodeDriver::configure, this, _1, _2));
+    reconfigure_server_.setCallback(boost::bind(&ProsilicaNodeBase::configure, this, _1, _2));
   }
 
-  void ProsilicaNodeDriver::configure(Config& config, uint32_t level)
+  void ProsilicaNodeBase::configure(Config& config, uint32_t level)
   {
     ROS_DEBUG("Reconfigure request received");
 
@@ -289,14 +289,14 @@ namespace prosilica{
       start();
   }
 
-  ProsilicaNodeDriver::~ProsilicaNodeDriver()
+  ProsilicaNodeBase::~ProsilicaNodeBase()
   {
     stop();
     cam_.reset(); // must destroy Camera before calling prosilica::fini
     prosilica::fini();
   }
 
-  void ProsilicaNodeDriver::syncInCallback (const std_msgs::HeaderConstPtr& msg)
+  void ProsilicaNodeBase::syncInCallback (const std_msgs::HeaderConstPtr& msg)
   {
     /// @todo Replace this with robust trigger matching
     trig_time_ = msg->stamp;
@@ -304,31 +304,31 @@ namespace prosilica{
   
   ///@todo add the setting of output sync1 and sync2?
 
-  void ProsilicaNodeDriver::start()
+  void ProsilicaNodeBase::start()
   {
     if (running_) return;
 
     if (trigger_mode_ == prosilica::Software) {
-      poll_srv_ = polled_camera::advertise(nh_, "request_image", &ProsilicaNodeDriver::pollCallback, this);
+      poll_srv_ = polled_camera::advertise(nh_, "request_image", &ProsilicaNodeBase::pollCallback, this);
       // Auto-exposure tends to go wild the first few frames after startup
       // if (auto_expose) normalizeExposure();
     }
     else {
       if ((trigger_mode_ == prosilica::SyncIn1) || (trigger_mode_ == prosilica::SyncIn2)) {
         if (!trig_timestamp_topic_.empty())
-          trigger_sub_ = nh_.subscribe(trig_timestamp_topic_, 1, &ProsilicaNodeDriver::syncInCallback, this);
+          trigger_sub_ = nh_.subscribe(trig_timestamp_topic_, 1, &ProsilicaNodeBase::syncInCallback, this);
       }
       else {
         assert(trigger_mode_ == prosilica::Freerun);
       }
-      cam_->setFrameCallback(boost::bind(&ProsilicaNodeDriver::publishImage, this, _1));
+      cam_->setFrameCallback(boost::bind(&ProsilicaNodeBase::publishImage, this, _1));
       streaming_pub_ = it_.advertiseCamera("image_raw", 1);
     }
     cam_->start(trigger_mode_, prosilica::Continuous);
     running_ = true;
   }
 
-  void ProsilicaNodeDriver::stop()
+  void ProsilicaNodeBase::stop()
   {
     if (!running_) return;
 
@@ -340,7 +340,7 @@ namespace prosilica{
     running_ = false;
   }
 
-  void ProsilicaNodeDriver::pollCallback(polled_camera::GetPolledImage::Request& req,
+  void ProsilicaNodeBase::pollCallback(polled_camera::GetPolledImage::Request& req,
                     polled_camera::GetPolledImage::Response& rsp,
                     sensor_msgs::Image& image, sensor_msgs::CameraInfo& info)
   {
@@ -401,7 +401,7 @@ namespace prosilica{
     rsp.success = true;
   }
 
-  bool ProsilicaNodeDriver::frameToImage(tPvFrame* frame, sensor_msgs::Image &image)
+  bool ProsilicaNodeBase::frameToImage(tPvFrame* frame, sensor_msgs::Image &image)
   {
     // NOTE: 16-bit and Yuv formats not supported
     static const char* BAYER_ENCODINGS[] = { "bayer_rggb8", "bayer_gbrg8", "bayer_grbg8", "bayer_bggr8" };
@@ -435,7 +435,7 @@ namespace prosilica{
     return sensor_msgs::fillImage(image, encoding, frame->Height, frame->Width, step, frame->ImageBuffer);
   }
   
-  bool ProsilicaNodeDriver::processFrame(tPvFrame* frame, sensor_msgs::Image &img, sensor_msgs::CameraInfo &cam_info)
+  bool ProsilicaNodeBase::processFrame(tPvFrame* frame, sensor_msgs::Image &img, sensor_msgs::CameraInfo &cam_info)
   {
     /// @todo Better trigger timestamp matching
     if ((trigger_mode_ == prosilica::SyncIn1 || trigger_mode_ == prosilica::SyncIn2) && !trig_time_.isZero()) {
@@ -477,13 +477,13 @@ namespace prosilica{
     return true;
   }
   
-  void ProsilicaNodeDriver::publishImage(tPvFrame* frame)
+  void ProsilicaNodeBase::publishImage(tPvFrame* frame)
   {
     if (processFrame(frame, img_, cam_info_))
       streaming_pub_.publish(img_, cam_info_);
   }
 
-  void ProsilicaNodeDriver::loadIntrinsics()
+  void ProsilicaNodeBase::loadIntrinsics()
   {
     // Retrieve contents of user memory
     std::string buffer(prosilica::Camera::USER_MEMORY_SIZE, '\0');
@@ -497,7 +497,7 @@ namespace prosilica{
       ROS_WARN("Failed to load intrinsics from camera");
   }
 
-  bool ProsilicaNodeDriver::setCameraInfo(sensor_msgs::SetCameraInfo::Request& req,
+  bool ProsilicaNodeBase::setCameraInfo(sensor_msgs::SetCameraInfo::Request& req,
                      sensor_msgs::SetCameraInfo::Response& rsp)
   {
     ROS_INFO("New camera info received");
@@ -551,7 +551,7 @@ namespace prosilica{
     return true;
   }
 
-  void ProsilicaNodeDriver::normalizeCallback(tPvFrame* frame)
+  void ProsilicaNodeBase::normalizeCallback(tPvFrame* frame)
   {
     unsigned long exposure;
     cam_->getAttribute("ExposureValue", exposure);
@@ -565,14 +565,14 @@ namespace prosilica{
     }
   }
   
-  void ProsilicaNodeDriver::normalizeExposure()
+  void ProsilicaNodeBase::normalizeExposure()
   {
     ROS_INFO("Normalizing exposure");
     /// @todo assert(stopped)
 
     last_exposure_value_ = 0;
     consecutive_stable_exposures_ = 0;
-    cam_->setFrameCallback(boost::bind(&ProsilicaNodeDriver::normalizeCallback, this, _1));
+    cam_->setFrameCallback(boost::bind(&ProsilicaNodeBase::normalizeCallback, this, _1));
     cam_->start(prosilica::Freerun);
 
     /// @todo thread safety
@@ -586,13 +586,13 @@ namespace prosilica{
   // Diagnostics //
   /////////////////
   
-  void ProsilicaNodeDriver::runDiagnostics()
+  void ProsilicaNodeBase::runDiagnostics()
   {
     self_test_->checkTest();
     diagnostic_.update();
   }
   
-  void ProsilicaNodeDriver::freqStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::freqStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     double freq = (double)(count_)/diagnostic_.getPeriod();
 
@@ -612,7 +612,7 @@ namespace prosilica{
     count_ = 0;
   }
 
-  void ProsilicaNodeDriver::frameStatistics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::frameStatistics(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     // Get stats from camera driver
     float frame_rate;
@@ -651,7 +651,7 @@ namespace prosilica{
     status.add("Frames Dropped", dropped);
   }
 
-  void ProsilicaNodeDriver::packetStatistics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::packetStatistics(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     // Get stats from camera driver
     unsigned long received, missed, requested, resent;
@@ -738,7 +738,7 @@ namespace prosilica{
     status.add("Max Data Rate (bytes/s)", max_data_rate);
   }
 
-  void ProsilicaNodeDriver::packetErrorStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::packetErrorStatus(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     unsigned long erroneous;
     cam_->getAttribute("StatPacketsErroneous", erroneous);
@@ -757,7 +757,7 @@ namespace prosilica{
   ////////////////
 
   // Try to load camera name, etc. Should catch gross communication failure.
-  void ProsilicaNodeDriver::infoTest(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::infoTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     status.name = "Info Test";
 
@@ -775,7 +775,7 @@ namespace prosilica{
   }
 
   // Test validity of all attribute values.
-  void ProsilicaNodeDriver::attributeTest(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::attributeTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     status.name = "Attribute Test";
 
@@ -804,7 +804,7 @@ namespace prosilica{
   }
 
   // Try to capture an image.
-  void ProsilicaNodeDriver::imageTest(diagnostic_updater::DiagnosticStatusWrapper& status)
+  void ProsilicaNodeBase::imageTest(diagnostic_updater::DiagnosticStatusWrapper& status)
   {
     status.name = "Image Capture Test";
 
